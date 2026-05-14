@@ -1,0 +1,675 @@
+import gradio as gr
+import pdfplumber
+import docx
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# =========================================================
+# CAREER DATABASE
+# =========================================================
+
+career_database = {
+
+    "AI Engineer": {
+        "keywords": [
+            "machine learning",
+            "deep learning",
+            "python",
+            "tensorflow",
+            "nlp",
+            "data science"
+        ],
+
+        "recommended_skills": [
+            "TensorFlow",
+            "PyTorch",
+            "NLP",
+            "Model Deployment",
+            "Data Visualization"
+        ]
+    },
+
+    "Frontend Developer": {
+        "keywords": [
+            "html",
+            "css",
+            "javascript",
+            "react",
+            "frontend"
+        ],
+
+        "recommended_skills": [
+            "React",
+            "Node.js",
+            "GitHub",
+            "API Integration",
+            "Responsive Design"
+        ]
+    },
+
+    "Backend Developer": {
+        "keywords": [
+            "backend",
+            "django",
+            "flask",
+            "nodejs",
+            "api"
+        ],
+
+        "recommended_skills": [
+            "REST APIs",
+            "MongoDB",
+            "SQL",
+            "Authentication",
+            "Cloud Deployment"
+        ]
+    },
+
+    "Data Analyst": {
+        "keywords": [
+            "sql",
+            "excel",
+            "power bi",
+            "tableau",
+            "data analysis"
+        ],
+
+        "recommended_skills": [
+            "Power BI",
+            "Tableau",
+            "Statistics",
+            "Dashboard Development"
+        ]
+    },
+
+    "Doctor": {
+        "keywords": [
+            "doctor",
+            "medical",
+            "patient",
+            "hospital",
+            "clinic"
+        ],
+
+        "recommended_skills": [
+            "Patient Care",
+            "Clinical Research",
+            "Medical Reporting",
+            "Emergency Care"
+        ]
+    },
+
+    "Teacher": {
+        "keywords": [
+            "teacher",
+            "education",
+            "student",
+            "classroom"
+        ],
+
+        "recommended_skills": [
+            "Classroom Management",
+            "Curriculum Design",
+            "Presentation Skills",
+            "Leadership"
+        ]
+    },
+
+    "Accountant": {
+        "keywords": [
+            "accounting",
+            "finance",
+            "audit",
+            "tax"
+        ],
+
+        "recommended_skills": [
+            "Financial Analysis",
+            "QuickBooks",
+            "Excel",
+            "Budget Planning"
+        ]
+    }
+
+}
+
+# =========================================================
+# SKILLS DATABASE
+# =========================================================
+
+skills_db = [
+
+    "python",
+    "java",
+    "c++",
+    "machine learning",
+    "deep learning",
+    "tensorflow",
+    "nlp",
+    "html",
+    "css",
+    "javascript",
+    "react",
+    "nodejs",
+    "django",
+    "flask",
+    "sql",
+    "mongodb",
+    "excel",
+    "power bi",
+    "tableau",
+    "data analysis",
+    "communication",
+    "leadership",
+    "patient care",
+    "clinical research",
+    "accounting",
+    "finance"
+]
+
+# =========================================================
+# PDF TEXT EXTRACTION
+# =========================================================
+
+def extract_text_from_pdf(file):
+
+    text = ""
+
+    with pdfplumber.open(file) as pdf:
+
+        for page in pdf.pages:
+
+            page_text = page.extract_text()
+
+            if page_text:
+
+                text += page_text + "\n"
+
+    return text
+
+# =========================================================
+# DOCX TEXT EXTRACTION
+# =========================================================
+
+def extract_text_from_docx(file):
+
+    doc = docx.Document(file)
+
+    text = ""
+
+    for para in doc.paragraphs:
+
+        text += para.text + "\n"
+
+    return text
+
+# =========================================================
+# EMAIL DETECTION
+# =========================================================
+
+def detect_email(text):
+
+    pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}"
+
+    emails = re.findall(pattern, text)
+
+    if len(emails) == 0:
+
+        return "❌ No Email Found"
+
+    email = emails[0]
+
+    trusted_domains = [
+        "gmail.com",
+        "yahoo.com",
+        "outlook.com",
+        "hotmail.com"
+    ]
+
+    domain = email.split("@")[1].lower()
+
+    if domain in trusted_domains:
+
+        return f"✅ Trusted Email: {email}"
+
+    else:
+
+        return f"⚠ Suspicious Email: {email}"
+
+# =========================================================
+# PHONE DETECTION
+# =========================================================
+
+def detect_phone(text):
+
+    pattern = r"\+?\d[\d -]{8,12}\d"
+
+    phones = re.findall(pattern, text)
+
+    if phones:
+
+        return phones[0]
+
+    return "❌ No Phone Number Found"
+
+# =========================================================
+# SKILL EXTRACTION
+# =========================================================
+
+def extract_skills(text):
+
+    found_skills = []
+
+    text = text.lower()
+
+    for skill in skills_db:
+
+        if skill.lower() in text:
+
+            found_skills.append(skill)
+
+    return found_skills
+
+# =========================================================
+# DETECT CAREER FIELD
+# =========================================================
+
+def detect_career_field(text):
+
+    text = text.lower()
+
+    best_match = "General Professional"
+
+    max_matches = 0
+
+    for career, data in career_database.items():
+
+        count = 0
+
+        for keyword in data["keywords"]:
+
+            if keyword.lower() in text:
+
+                count += 1
+
+        if count > max_matches:
+
+            max_matches = count
+            best_match = career
+
+    return best_match
+
+# =========================================================
+# MISSING SKILLS
+# =========================================================
+
+def field_based_missing_skills(career, found_skills):
+
+    if career not in career_database:
+
+        return []
+
+    recommended = career_database[career]["recommended_skills"]
+
+    missing = []
+
+    for skill in recommended:
+
+        if skill.lower() not in [s.lower() for s in found_skills]:
+
+            missing.append(skill)
+
+    return missing
+
+# =========================================================
+# EXPERIENCE LEVEL
+# =========================================================
+
+def detect_experience_level(text):
+
+    text = text.lower()
+
+    if "intern" in text or "fresher" in text:
+
+        return "🟢 Fresher"
+
+    elif "2 years" in text or "3 years" in text:
+
+        return "🟡 Mid-Level"
+
+    elif "5 years" in text or "senior" in text:
+
+        return "🔴 Senior Professional"
+
+    else:
+
+        return "⚪ Not Clear"
+
+# =========================================================
+# RESUME SCORE
+# =========================================================
+
+def resume_score(skills, text):
+
+    score = 0
+
+    score += len(skills) * 5
+
+    if "project" in text.lower():
+
+        score += 10
+
+    if "experience" in text.lower():
+
+        score += 10
+
+    if "education" in text.lower():
+
+        score += 10
+
+    if "certification" in text.lower():
+
+        score += 10
+
+    if score > 100:
+
+        score = 100
+
+    return score
+
+# =========================================================
+# RESUME TIPS
+# =========================================================
+
+def resume_tips(score):
+
+    if score >= 80:
+
+        return """
+✅ Excellent Resume
+
+• Strong technical profile
+• Add portfolio links
+• Add achievements
+"""
+
+    elif score >= 50:
+
+        return """
+⚠ Average Resume
+
+• Add more projects
+• Improve skill section
+• Add certifications
+"""
+
+    else:
+
+        return """
+❌ Weak Resume
+
+• Add proper skills
+• Add experience
+• Improve formatting
+"""
+
+# =========================================================
+# GRAPH FUNCTION
+# =========================================================
+
+def create_graph(score, skills):
+
+    categories = [
+        "Resume Score",
+        "Skills Found"
+    ]
+
+    values = [
+        score,
+        len(skills) * 10
+    ]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    ax.bar(categories, values)
+
+    ax.set_ylim(0, 100)
+
+    ax.set_title("Resume Analytics Dashboard")
+
+    ax.set_ylabel("Score")
+
+    return fig
+
+# =========================================================
+# MAIN ANALYZER FUNCTION
+# =========================================================
+
+def analyze_resume(file):
+
+    if file is None:
+
+        return (
+            "", "", "", "", "", "", "", "", "", None
+        )
+
+    filename = file.name
+
+    # =====================================================
+    # FILE CHECK
+    # =====================================================
+
+    if filename.endswith(".pdf"):
+
+        text = extract_text_from_pdf(file)
+
+    elif filename.endswith(".docx"):
+
+        text = extract_text_from_docx(file)
+
+    else:
+
+        return (
+            "Unsupported File",
+            "", "", "", "", "", "", "", "", None
+        )
+
+    # =====================================================
+    # ANALYSIS
+    # =====================================================
+
+    email_result = detect_email(text)
+
+    phone_result = detect_phone(text)
+
+    skills = extract_skills(text)
+
+    career = detect_career_field(text)
+
+    missing_skills = field_based_missing_skills(
+        career,
+        skills
+    )
+
+    experience = detect_experience_level(text)
+
+    score = resume_score(skills, text)
+
+    tips = resume_tips(score)
+
+    # =====================================================
+    # CREATE GRAPH
+    # =====================================================
+
+    graph = create_graph(score, skills)
+
+    # =====================================================
+    # RETURN OUTPUTS
+    # =====================================================
+
+    return (
+
+        f"{score}/100",
+
+        career,
+
+        experience,
+
+        email_result,
+
+        phone_result,
+
+        ", ".join(skills) if skills else "No Skills Found",
+
+        ", ".join(missing_skills)
+        if missing_skills else "No Missing Skills",
+
+        tips,
+
+        text[:2000],
+
+        graph
+    )
+
+# =========================================================
+# PROFESSIONAL DASHBOARD UI
+# =========================================================
+
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+
+    gr.Markdown(
+        "# 📄 AI Resume Analyzer Dashboard"
+    )
+
+    gr.Markdown(
+        "Upload your resume and get professional AI analysis with graphs."
+    )
+
+    # =====================================================
+    # FILE INPUT
+    # =====================================================
+
+    with gr.Row():
+
+        file_input = gr.File(
+            label="📄 Upload Resume PDF/DOCX"
+        )
+
+    analyze_btn = gr.Button(
+        "🚀 Analyze Resume"
+    )
+
+    # =====================================================
+    # TOP DASHBOARD
+    # =====================================================
+
+    with gr.Row():
+
+        resume_score_output = gr.Textbox(
+            label="📈 Resume Score"
+        )
+
+        career_output = gr.Textbox(
+            label="💼 Career Field"
+        )
+
+        experience_output = gr.Textbox(
+            label="🧠 Experience Level"
+        )
+
+    # =====================================================
+    # CONTACT INFO
+    # =====================================================
+
+    with gr.Row():
+
+        email_output = gr.Textbox(
+            label="📧 Email Detection"
+        )
+
+        phone_output = gr.Textbox(
+            label="📱 Phone Detection"
+        )
+
+    # =====================================================
+    # SKILLS SECTION
+    # =====================================================
+
+    with gr.Row():
+
+        skills_output = gr.Textbox(
+            label="🛠 Skills Found",
+            lines=8
+        )
+
+        missing_skills_output = gr.Textbox(
+            label="❗ Missing Skills",
+            lines=8
+        )
+
+    # =====================================================
+    # TIPS
+    # =====================================================
+
+    tips_output = gr.Textbox(
+        label="🧠 Resume Suggestions",
+        lines=8
+    )
+
+    # =====================================================
+    # GRAPH OUTPUT
+    # =====================================================
+
+    graph_output = gr.Plot(
+        label="📊 Resume Analytics Graph"
+    )
+
+    # =====================================================
+    # RESUME PREVIEW
+    # =====================================================
+
+    resume_preview_output = gr.Textbox(
+        label="📃 Resume Preview",
+        lines=15
+    )
+
+    # =====================================================
+    # BUTTON ACTION
+    # =====================================================
+
+    analyze_btn.click(
+
+        fn=analyze_resume,
+
+        inputs=file_input,
+
+        outputs=[
+
+            resume_score_output,
+
+            career_output,
+
+            experience_output,
+
+            email_output,
+
+            phone_output,
+
+            skills_output,
+
+            missing_skills_output,
+
+            tips_output,
+
+            resume_preview_output,
+
+            graph_output
+        ]
+    )
+
+# =========================================================
+# RUN APPLICATION
+# =========================================================
+
+demo.launch(share=True)
